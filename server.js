@@ -7,8 +7,12 @@ const connectDB = require('./db');
 const userController = require("./routes/api/userController")
 const cors = require('cors');
 
-const PORT = 4000;
+
 const app = express();
+console.log(process.env.NODE_ENV);
+const stage = process.env.NODE_ENV
+const PORT = stage === "production" ? 80 : 4000;
+
 app.use(cors({
   origin: 'http://localhost:3000',  // replace with your application's URL
   credentials: true,  // IMPORTANT: enable credentials. This is needed for cookies to work
