@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const URI = "mongodb+srv://jjtam625:mangos1234@cluster0.qleagug.mongodb.net/?retryWrites=true&w=majority";
+const URI = process.env.DATABASE_URL
 
 const connectDB = async () => {
     console.log("attempting to connect to the database")

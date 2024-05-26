@@ -2,13 +2,12 @@ const bodyParser = require('body-parser');
 const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const PORT = 4000;
+require('dotenv').config();
 const connectDB = require('./db');
 const userController = require("./routes/api/userController")
 const cors = require('cors');
-require('dotenv').config();
 
-
+const PORT = 4000;
 const app = express();
 app.use(cors({
   origin: 'http://localhost:3000',  // replace with your application's URL
@@ -17,12 +16,12 @@ app.use(cors({
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.use(function (req, res, next) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PUT, OPTIONS, DELETE');
-  next();
-});
+// app.use(function (req, res, next) {
+//   res.setHeader('Access-Control-Allow-Origin', '*');
+//   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+//   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PUT, OPTIONS, DELETE');
+//   next();
+// });
 
 app.use(morgan("dev"));
 app.use(helmet());

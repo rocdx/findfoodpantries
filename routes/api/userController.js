@@ -14,13 +14,17 @@ router.get("/fetch/user/:email", async (req, res) => {
     if (existingUser) {
         return res.status(200).json(existingUser)
     } else {
+        console.log("no user exists we shoul return this back")
         return res.status(404).json({message: "no such user exists"})
     }
 })
 
 router.post("/create/user", async (req, res) => {
     const authEmail = req.body.authEmail
+    console.log("authEmail: ", authEmail);
     const existingUser = await User.findOne({authEmail: authEmail})
+    console.log("creating new user: ");
+    console.log(existingUser);
     if (existingUser) {
         return res.status(400).json({message: "user already exists"})
     }
@@ -66,10 +70,19 @@ router.get("/fetch/pantries/:zipcode", async (req, res) => {
     console.log("County is " + foundCounty)
     //const foodPantryCounty = req.params.county
     const foodPantries = await FoodPantry.find({county: foundCounty})
-    if (foodPantries.length === 0 || foodPantries === null || foodPantries === undefined) {
+    const sortedFoodPantries = foodPantries.sort((a, b) => {
+        if (a.name === "Church of Southland Food Pantry") {
+            return -1;
+        }
+        if (b.name === "Church of Southland Food Pantry") {
+            return 1;
+        }
+        return 0;
+    });
+    if (sortedFoodPantries.length === 0 || sortedFoodPantries === null || sortedFoodPantries === undefined) {
         return res.status(404).send({message: "food pantries by county not found "});
     }
-    return res.status(200).json(foodPantries)
+    return res.status(200).json(sortedFoodPantries)
 })
 
 router.post("/create/food/bank", async (req, res) => {
