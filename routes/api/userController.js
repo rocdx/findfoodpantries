@@ -16,7 +16,7 @@ router.get("/:email", async (req, res) => {
             return res.status(200).json(existingUser)
         } else {
             console.log("no user exists we shoul return this back")
-            return res.status(404).json({message: "no such user exists"})
+            return res.status(200).json({message: "no such user exists"})
         }
     } catch (error) {
         console.log(error);
