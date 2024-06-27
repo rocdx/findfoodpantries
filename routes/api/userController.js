@@ -20,7 +20,7 @@ router.get("/:email", async (req, res) => {
         }
     } catch (error) {
         console.log(error);
-        return res.status(500).json({message: "Internal Server error"});
+        return res.status(400).json({message: "Server error"});
     }
 })
 
@@ -40,7 +40,7 @@ router.post("/create/user", async (req, res) => {
 
     } catch (error) {
         console.log(error);
-        return res.status(500).json({message: "Internal Server error"});
+        return res.status(400).json({message: "Server error"});
     }
 })
 
@@ -64,7 +64,7 @@ router.put("/update/user/profile/:authEmail", async (req, res) => {
         }
     } catch (error) {
         console.log(error);
-        return res.status(500).json({message: "Internal Server error"});
+        return res.status(400).json({message: "Server error"});
     }
 })
 
@@ -103,7 +103,7 @@ router.get("/fetch/pantries/:zipcode", async (req, res) => {
         return res.status(200).json(sortedFoodPantries)
     } catch (error) {
         console.log(error);
-        return res.status(500).json({message: "Internal Server error"});
+        return res.status(400).json({message: "Server error"});
     }
 })
 
@@ -121,7 +121,7 @@ router.post("/create/food/bank", async (req, res) => {
         }
     } catch(error) {
         console.log(error);
-        return res.status(500).json({message: "Internal Server error"});
+        return res.status(400).json({message: "Server error"});
     }
 })
 
