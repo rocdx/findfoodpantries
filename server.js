@@ -13,6 +13,22 @@ console.log(process.env.NODE_ENV);
 const stage = process.env.NODE_ENV
 const PORT = stage === "production" ? 80 : 4000;
 
+// Define the allowed origins
+const allowedOrigins = ['http://localhost:3000', 'https://findfoodpantries.com'];
+
+app.use(cors({
+    origin: function(origin, callback) {
+        // Allow requests with no origin, like mobile apps or curl requests
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
+    credentials: true,  // Enable credentials. This is needed for cookies to work
+}));
+
 app.use(cors({
   origin: 'http://localhost:3000',  // replace with your application's URL
   credentials: true,  // IMPORTANT: enable credentials. This is needed for cookies to work
