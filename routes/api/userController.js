@@ -97,9 +97,9 @@ router.get("/fetch/pantries/:zipcode", async (req, res) => {
             }
             return 0;
         });
-        if (sortedFoodPantries.length === 0 || sortedFoodPantries === null || sortedFoodPantries === undefined) {
-            return res.status(404).send({message: "food pantries by county not found "});
-        }
+        // if (sortedFoodPantries.length === 0 || sortedFoodPantries === null || sortedFoodPantries === undefined) {
+        //     return res.status(404).send({message: "food pantries by county not found "});
+        // }
         return res.status(200).json(sortedFoodPantries)
     } catch (error) {
         console.log(error);
