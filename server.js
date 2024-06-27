@@ -36,7 +36,7 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-app.use("/api/v1/userController", userController)
+app.use("/api/v1/user", userController)
 
 app.listen(PORT, console.log(`API is listening on port ${PORT}`));
 

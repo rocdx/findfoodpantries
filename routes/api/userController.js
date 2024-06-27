@@ -9,92 +9,119 @@ const nodemailer = require("nodemailer")
 require('dotenv').config();
 const axios = require("axios")
 
-router.get("/fetch/user/:email", async (req, res) => {
-    const existingUser = await User.findOne({authEmail: req.params.email})
-    if (existingUser) {
-        return res.status(200).json(existingUser)
-    } else {
-        console.log("no user exists we shoul return this back")
-        return res.status(404).json({message: "no such user exists"})
+router.get("/:email", async (req, res) => {
+    try {
+        const existingUser = await User.findOne({authEmail: req.params.email})
+        if (existingUser) {
+            return res.status(200).json(existingUser)
+        } else {
+            console.log("no user exists we shoul return this back")
+            return res.status(404).json({message: "no such user exists"})
+        }
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message: "Internal Server error"});
     }
 })
 
 router.post("/create/user", async (req, res) => {
-    const authEmail = req.body.authEmail
-    console.log("authEmail: ", authEmail);
-    const existingUser = await User.findOne({authEmail: authEmail})
-    console.log("creating new user: ");
-    console.log(existingUser);
-    if (existingUser) {
-        return res.status(400).json({message: "user already exists"})
+    try {
+        const authEmail = req.body.authEmail
+        console.log("authEmail: ", authEmail);
+        const existingUser = await User.findOne({authEmail: authEmail})
+        console.log("creating new user: ");
+        console.log(existingUser);
+        if (existingUser) {
+            return res.status(400).json({message: "user already exists"})
+        }
+        const newUser = new User(req.body);
+        await newUser.save();
+        return res.status(200).json(newUser);
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message: "Internal Server error"});
     }
-    const newUser = new User(req.body);
-    await newUser.save();
-    return res.status(200).json(newUser);
 })
 
 router.put("/update/user/profile/:authEmail", async (req, res) => {
-    const authEmail = req.params.authEmail;
-    const existingUser = await User.findOne({authEmail : authEmail});
-
-    if (existingUser) {
-        const updatedUserProfile = await User.findByIdAndUpdate(
-            existingUser._id,
-            req.body,
-            {new: true}
-        )
-        if (!updatedUserProfile) {
-            return res.status(404).json({message: "user update failed. Please try again"})
+    try {
+        const authEmail = req.params.authEmail;
+        const existingUser = await User.findOne({authEmail : authEmail});
+    
+        if (existingUser) {
+            const updatedUserProfile = await User.findByIdAndUpdate(
+                existingUser._id,
+                req.body,
+                {new: true}
+            )
+            if (!updatedUserProfile) {
+                return res.status(404).json({message: "user update failed. Please try again"})
+            }
+            return res.status(200).json(updatedUserProfile);
+        } else {
+            return res.status(404).json({message: "User is not found. An update to user profile cannot be made."})
         }
-        return res.status(200).json(updatedUserProfile);
-    } else {
-        return res.status(404).json({message: "User is not found. An update to user profile cannot be made."})
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message: "Internal Server error"});
     }
 })
 
 router.get("/fetch/pantries/:zipcode", async (req, res) => {
-    const zipcode = 92805
-    const googleAPIUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${zipcode}&key=AIzaSyCrTJq2oQHQqqGZKB4jTrwpGkCPvZ4Z2Ak`
-    const countyResult = await axios.get(googleAPIUrl)
-    console.log(JSON.stringify(countyResult.data.results))
-    const temp = countyResult.data.results
-    const components = temp[0].address_components
-    var foundCounty = ""
-    for (var i = 0; i < components.length; i++) {
-        var locationObject = components[i]
-        if (locationObject.types.includes("administrative_area_level_2")) {
-            foundCounty = locationObject.long_name
-            break;
+    try {
+        const zipcode = parseInt(req.params.zipcode, 10);
+        console.log(zipcode);
+        const googleAPIUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${zipcode}&key=AIzaSyCA6Xz_0OVoh0sPkhZcXomsFp3wolAqK4A`
+        const countyResult = await axios.get(googleAPIUrl)
+        console.log(JSON.stringify(countyResult.data.results))
+        const temp = countyResult.data.results
+        const components = temp[0].address_components
+        var foundCounty = ""
+        for (var i = 0; i < components.length; i++) {
+            var locationObject = components[i]
+            if (locationObject.types.includes("administrative_area_level_2")) {
+                foundCounty = locationObject.long_name
+                break;
+            }
         }
+        console.log("County is " + foundCounty)
+        //const foodPantryCounty = req.params.county
+        const foodPantries = await FoodPantry.find({county: foundCounty})
+        const sortedFoodPantries = foodPantries.sort((a, b) => {
+            if (a.name === "Church of Southland Food Pantry") {
+                return -1;
+            }
+            if (b.name === "Church of Southland Food Pantry") {
+                return 1;
+            }
+            return 0;
+        });
+        if (sortedFoodPantries.length === 0 || sortedFoodPantries === null || sortedFoodPantries === undefined) {
+            return res.status(404).send({message: "food pantries by county not found "});
+        }
+        return res.status(200).json(sortedFoodPantries)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message: "Internal Server error"});
     }
-    console.log("County is " + foundCounty)
-    //const foodPantryCounty = req.params.county
-    const foodPantries = await FoodPantry.find({county: foundCounty})
-    const sortedFoodPantries = foodPantries.sort((a, b) => {
-        if (a.name === "Church of Southland Food Pantry") {
-            return -1;
-        }
-        if (b.name === "Church of Southland Food Pantry") {
-            return 1;
-        }
-        return 0;
-    });
-    if (sortedFoodPantries.length === 0 || sortedFoodPantries === null || sortedFoodPantries === undefined) {
-        return res.status(404).send({message: "food pantries by county not found "});
-    }
-    return res.status(200).json(sortedFoodPantries)
 })
 
 router.post("/create/food/bank", async (req, res) => {
-    const existingAddress = req.body.address 
-    const existingFoodPantry = await FoodPantry.findOne({address: existingAddress});
-
-    if (existingFoodPantry) {
-        return res.status(400).json({messaage: "Food pantry exists. Please try another one"})
-    } else {
-        const newFoodPantry = new FoodPantry(req.body);
-        await newFoodPantry.save();
-        return res.status(200).json(newFoodPantry);
+    try {
+        const existingAddress = req.body.address 
+        const existingFoodPantry = await FoodPantry.findOne({address: existingAddress});
+    
+        if (existingFoodPantry) {
+            return res.status(400).json({messaage: "Food pantry exists. Please try another one"})
+        } else {
+            const newFoodPantry = new FoodPantry(req.body);
+            await newFoodPantry.save();
+            return res.status(200).json(newFoodPantry);
+        }
+    } catch(error) {
+        console.log(error);
+        return res.status(500).json({message: "Internal Server error"});
     }
 })
 
