@@ -4,11 +4,105 @@ var ObjectID = require("mongodb").ObjectId;
 const UserInquiry = require("../../models/UserInquiry")
 const FoodPantry = require("../../models/FoodPantry")
 const User = require("../../models/User")
+const Busboy = require('busboy');
 
 const nodemailer = require("nodemailer")
 require('dotenv').config();
 const axios = require("axios")
 
+const AWS = require('aws-sdk');
+// AWS S3 configuration
+
+const s3 = new AWS.S3({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  });
+
+
+
+  const uploadFileToS3 = (uploadParams) => {
+    return new Promise((resolve, reject) => {
+      s3.upload(uploadParams, (err, data) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve(data);
+      });
+    });
+  };
+  
+  router.post('/upload/image', (req, res) => {
+    const busboy = Busboy({ headers: req.headers });
+    let fileData;
+    let fileName;
+    let contentType;
+    let pantryDetails = {}; // Store pantry details here
+  
+    // Handle text fields in the form (name, description, etc.)
+    busboy.on('field', (fieldname, value) => {
+      pantryDetails[fieldname] = value;
+      console.log(`Field [${fieldname}]: value: ${value}`);
+    });
+  
+    busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+        console.log(JSON.stringify(file))
+        console.log(JSON.stringify(filename));
+      fileName = `${Date.now()}-${filename.file}`;
+      contentType = mimetype;
+  
+      console.log(`File [${fieldname}]: filename: ${filename.filename}, encoding: ${encoding}, mimetype: ${mimetype}`);
+  
+      const fileChunks = [];
+  
+      file.on('data', (data) => {
+        fileChunks.push(data);
+      });
+  
+      file.on('end', async () => {
+        fileData = Buffer.concat(fileChunks);
+  
+        const uploadParams = {
+          Bucket: process.env.AWS_S3_BUCKET_NAME,
+          Key: fileName,
+          Body: fileData,
+          ContentType: contentType,
+        };
+  
+        try {
+          // Upload the file to S3
+          const s3Data = await uploadFileToS3(uploadParams);
+          pantryDetails.imageURL = s3Data.Location; // Store S3 image URL in pantry details
+  
+          // Log all pantry details for debugging
+          console.log('Pantry Details:', pantryDetails);
+  
+          // Create the FoodPantry document in MongoDB
+          const newPantry = new FoodPantry(pantryDetails);
+          await newPantry.save(); // Save the new pantry document
+  
+          // Return success response
+          return res.status(200).json({
+            message: 'File uploaded to S3 and pantry created successfully',
+            pantry: newPantry,
+          });
+        } catch (error) {
+          console.error('Error uploading to S3 or creating pantry:', error);
+          res
+            .status(500)
+            .json({ error: 'Error uploading the file to S3 or creating the pantry document' });
+        }
+      });
+    });
+  
+    busboy.on('finish', () => {
+      console.log('Busboy finished parsing the form.');
+    });
+  
+    req.pipe(busboy);
+  });
+
+  
 router.get("/:email", async (req, res) => {
     try {
         const existingUser = await User.findOne({authEmail: req.params.email})
@@ -72,8 +166,9 @@ router.get("/fetch/pantries/:zipcode", async (req, res) => {
     try {
         const zipcode = parseInt(req.params.zipcode, 10);
         console.log(zipcode);
-        const googleAPIUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${zipcode}&key=AIzaSyCA6Xz_0OVoh0sPkhZcXomsFp3wolAqK4A`
+        const googleAPIUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${zipcode}&key=AIzaSyDGLn8aVx7RLPS9qlbTtcgLqBYzj_nJB2k`
         const countyResult = await axios.get(googleAPIUrl)
+        console.log(countyResult)
         console.log(JSON.stringify(countyResult.data.results))
         const temp = countyResult.data.results
         const components = temp[0].address_components
@@ -170,5 +265,45 @@ router.post("/subscribe/foodbank", async (req, res) => {
         return res.status(500).send("Subscription to food bank has failed")
     }
 })
+
+router.get('/fetch/cities/:zip', async (req, res) => {
+    const zipCode = req.params.zip;
+  
+    if (!zipCode) {
+      return res.status(400).json({ error: 'ZIP code is required' });
+    }
+  
+    try {
+      // Fetch data from Zippopotam.us API
+      const response = await axios.get(`http://api.zippopotam.us/us/${zipCode}`);
+  
+      const places = response.data.places;
+  
+      if (!places || places.length === 0) {
+        return res.status(404).json({ error: 'No cities found for this ZIP code' });
+      }
+  
+      // Map the places to extract city names
+      const cities = places.map((place) => place['place name']);
+      console.log(cities)
+      // Remove duplicates
+      const uniqueCities = [...new Set(cities)];
+  
+      // Limit the results to 25 cities
+      const limitedCities = uniqueCities.slice(0, 25);
+  
+      return res.status(200).json({ cities: limitedCities });
+    } catch (error) {
+      console.error('Error fetching cities:', error.message);
+  
+      if (error.response && error.response.status === 404) {
+        return res.status(404).json({ error: 'Invalid ZIP code' });
+      } else {
+        return res.status(500).json({ error: 'Error fetching cities' });
+      }
+    }
+  });
+
+
 
 module.exports = router;
