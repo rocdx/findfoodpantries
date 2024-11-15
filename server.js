@@ -33,8 +33,9 @@ app.use(cors({
   origin: 'http://localhost:3000',  // replace with your application's URL
   credentials: true,  // IMPORTANT: enable credentials. This is needed for cookies to work
 }));
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+
+app.use(bodyParser.urlencoded({ extended: false, limit: '10mb' }));
+app.use(bodyParser.json({ limit: '10mb' }));
 
 // app.use(function (req, res, next) {
 //   res.setHeader('Access-Control-Allow-Origin', '*');
