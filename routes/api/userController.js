@@ -32,75 +32,115 @@ const s3 = new AWS.S3({
     });
   };
   
-  router.post('/upload/image', (req, res) => {
+
+router.post('/upload/image', async (req, res) => {
+  if (req.is('application/json')) {
+    // Handle JSON data (Production)
+    const { file, fileName, fileType, ...pantryDetails } = req.body;
+
+    // Validate required fields
+    if (!file) {
+      return res.status(400).json({ error: 'File is required' });
+    }
+
+    // Decode the base64-encoded file
+    const fileData = Buffer.from(file, 'base64');
+
+    // Use provided fileName and fileType if available
+    const uploadFileName = `${Date.now()}-${fileName || 'image.png'}`;
+    const contentType = fileType || 'application/octet-stream';
+
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: uploadFileName,
+      Body: fileData,
+      ContentType: contentType,
+    };
+
+    try {
+      // Upload the file to S3
+      const s3Data = await uploadFileToS3(uploadParams);
+      pantryDetails.imageURL = s3Data.Location;
+
+      // Save to MongoDB
+      const newPantry = new FoodPantry(pantryDetails);
+      await newPantry.save();
+
+      return res.status(200).json({
+        message: 'File uploaded to S3 and pantry created successfully',
+        pantry: newPantry,
+      });
+    } catch (error) {
+      console.error('Error uploading to S3 or creating pantry:', error);
+      res.status(500).json({ error: 'Error uploading the file to S3 or creating the pantry document' });
+    }
+  } else if (req.is('multipart/form-data')) {
+    // Handle multipart/form-data using Busboy (Local Development)
     const busboy = Busboy({ headers: req.headers });
     let fileData;
     let fileName;
     let contentType;
-    let pantryDetails = {}; // Store pantry details here
-  
-    // Handle text fields in the form (name, description, etc.)
+    let pantryDetails = {};
+
+    // Existing Busboy code...
     busboy.on('field', (fieldname, value) => {
       pantryDetails[fieldname] = value;
       console.log(`Field [${fieldname}]: value: ${value}`);
     });
-  
+
     busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
-        console.log(JSON.stringify(file))
-        console.log(JSON.stringify(filename));
-      fileName = `${Date.now()}-${filename.file}`;
+      fileName = `${Date.now()}-${filename.filename}`;
       contentType = mimetype;
-  
       console.log(`File [${fieldname}]: filename: ${filename.filename}, encoding: ${encoding}, mimetype: ${mimetype}`);
-  
+
       const fileChunks = [];
-  
+
       file.on('data', (data) => {
         fileChunks.push(data);
       });
-  
+
       file.on('end', async () => {
         fileData = Buffer.concat(fileChunks);
-  
+
         const uploadParams = {
           Bucket: process.env.AWS_S3_BUCKET_NAME,
           Key: fileName,
           Body: fileData,
           ContentType: contentType,
         };
-  
+
         try {
           // Upload the file to S3
           const s3Data = await uploadFileToS3(uploadParams);
-          pantryDetails.imageURL = s3Data.Location; // Store S3 image URL in pantry details
-  
-          // Log all pantry details for debugging
-          console.log('Pantry Details:', pantryDetails);
-  
-          // Create the FoodPantry document in MongoDB
+          pantryDetails.imageURL = s3Data.Location;
+
+          // Save to MongoDB
           const newPantry = new FoodPantry(pantryDetails);
-          await newPantry.save(); // Save the new pantry document
-  
-          // Return success response
+          await newPantry.save();
+
           return res.status(200).json({
             message: 'File uploaded to S3 and pantry created successfully',
             pantry: newPantry,
           });
         } catch (error) {
           console.error('Error uploading to S3 or creating pantry:', error);
-          res
-            .status(500)
-            .json({ error: 'Error uploading the file to S3 or creating the pantry document' });
+          res.status(500).json({ error: 'Error uploading the file to S3 or creating the pantry document' });
         }
       });
     });
-  
+
     busboy.on('finish', () => {
       console.log('Busboy finished parsing the form.');
     });
-  
+
     req.pipe(busboy);
-  });
+  } else {
+    // Unsupported Content-Type
+    res.status(415).json({ error: 'Unsupported content type' });
+  }
+});
+
+
 
   
 router.get("/:email", async (req, res) => {
